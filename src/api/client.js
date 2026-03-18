@@ -33,7 +33,7 @@ export function markLeadSeen(leadId) {
 }
 
 export function markAllSeen() {
-  return request('/leads/seen/all', { method: 'PUT' });
+  return request('/leads/seen-all', { method: 'PUT' });
 }
 
 export function getLeadEmails(leadId, refresh = false) {

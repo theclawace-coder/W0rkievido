@@ -47,7 +47,7 @@ app.put('/api/leads/:id/seen', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.put('/api/leads/seen/all', async (req, res) => {
+app.put('/api/leads/seen-all', async (req, res) => {
   await markAllLeadsSeen();
   res.json({ ok: true });
 });
