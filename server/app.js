@@ -1,13 +1,19 @@
 import express from 'express';
 import cors from 'cors';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { fetchAllLeads, fetchLeadEmailHistory } from './smartlead.js';
 import { setLeads, getLeadsWithCRM, getLastFetched, updateCRM, getCRMData, markLeadSeen, markAllLeadsSeen, getEmailHistory, saveEmailHistory } from './store.js';
 import { supabase } from './supabase.js';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Serve built frontend
+app.use(express.static(join(__dirname, '..', 'dist')));
 
 // Fetch leads from SmartLead and save to Supabase
 async function refreshLeads() {
@@ -133,6 +139,11 @@ app.get('/api/stats', async (req, res) => {
   }
 
   res.json(stats);
+});
+
+// SPA fallback - serve index.html for all non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(join(__dirname, '..', 'dist', 'index.html'));
 });
 
 export { refreshLeads };
