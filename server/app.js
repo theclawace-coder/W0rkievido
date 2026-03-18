@@ -53,33 +53,54 @@ app.put('/api/leads/seen/all', async (req, res) => {
 });
 
 app.get('/api/leads/:leadId/emails', async (req, res) => {
-  const { leadId } = req.params;
-  const refresh = req.query.refresh === 'true';
+  try {
+    const { leadId } = req.params;
+    const refresh = req.query.refresh === 'true';
 
-  const { data: lead } = await supabase
-    .from('leads')
-    .select('smartlead_id, campaign_id')
-    .eq('id', leadId)
-    .maybeSingle();
+    const { data: lead, error: leadError } = await supabase
+      .from('leads')
+      .select('smartlead_id, campaign_id')
+      .eq('id', leadId)
+      .maybeSingle();
 
-  if (!lead) {
-    return res.json({ emails: [] });
-  }
-
-  if (!refresh) {
-    const cached = await getEmailHistory(leadId, lead.campaign_id);
-    if (cached.length > 0) {
-      return res.json({ emails: cached });
+    if (leadError) {
+      console.error('Error looking up lead:', leadError.message);
+      return res.status(500).json({ emails: [], error: leadError.message });
     }
+
+    if (!lead || !lead.smartlead_id) {
+      return res.json({ emails: [], debug: { lead, leadId } });
+    }
+
+    // Check cache first (unless refresh requested)
+    if (!refresh) {
+      try {
+        const cached = await getEmailHistory(leadId, lead.campaign_id);
+        if (cached.length > 0) {
+          return res.json({ emails: cached });
+        }
+      } catch (cacheErr) {
+        console.error('Cache lookup failed (table may not exist):', cacheErr.message);
+      }
+    }
+
+    // Fetch fresh from SmartLead
+    const emails = await fetchLeadEmailHistory(lead.campaign_id, lead.smartlead_id);
+
+    // Try to cache in Supabase (non-blocking, don't fail if table missing)
+    if (emails.length > 0) {
+      try {
+        await saveEmailHistory(leadId, lead.campaign_id, emails);
+      } catch (saveErr) {
+        console.error('Failed to cache emails:', saveErr.message);
+      }
+    }
+
+    res.json({ emails });
+  } catch (e) {
+    console.error('Email endpoint error:', e.message);
+    res.status(500).json({ emails: [], error: e.message });
   }
-
-  const emails = await fetchLeadEmailHistory(lead.campaign_id, lead.smartlead_id);
-
-  if (emails.length > 0) {
-    await saveEmailHistory(leadId, lead.campaign_id, emails);
-  }
-
-  res.json({ emails });
 });
 
 app.get('/api/stats', async (req, res) => {
