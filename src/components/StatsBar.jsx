@@ -3,6 +3,7 @@ const cards = [
   { key: 'interested', label: 'Interested', sub: 'Ready to follow up', colorClass: 'text-accent-green' },
   { key: 'meetingBooked', label: 'Meeting Booked', sub: 'Scheduled calls', colorClass: 'text-accent-blue' },
   { key: 'outOfOffice', label: 'Out of Office', sub: 'Follow up later', colorClass: 'text-accent-yellow' },
+  { key: 'callbacks', label: 'Callbacks', sub: 'Scheduled follow-ups', colorClass: 'text-accent-yellow' },
   { key: 'total', label: 'Total Leads', sub: 'Across both campaigns', colorClass: 'text-accent-purple' },
 ];
 

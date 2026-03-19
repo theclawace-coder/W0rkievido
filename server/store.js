@@ -82,6 +82,7 @@ export async function getCRMData() {
       kanbanStatus: row.kanban_status,
       notes: row.notes || '',
       followUpDate: row.follow_up_date,
+      callbackDatetime: row.callback_datetime || null,
     };
   }
   return result;
@@ -94,6 +95,7 @@ export async function updateCRM(email, updates) {
     ...(updates.kanbanStatus !== undefined && { kanban_status: updates.kanbanStatus }),
     ...(updates.notes !== undefined && { notes: updates.notes }),
     ...(updates.followUpDate !== undefined && { follow_up_date: updates.followUpDate || null }),
+    ...(updates.callbackDatetime !== undefined && { callback_datetime: updates.callbackDatetime || null }),
   };
 
   const { data, error } = await supabase
@@ -112,6 +114,7 @@ export async function updateCRM(email, updates) {
     kanbanStatus: data.kanban_status,
     notes: data.notes || '',
     followUpDate: data.follow_up_date,
+    callbackDatetime: data.callback_datetime || null,
   };
 }
 
@@ -197,12 +200,13 @@ export async function getLeadsWithCRM() {
       kanbanStatus: row.kanban_status,
       notes: row.notes || '',
       followUpDate: row.follow_up_date,
+      callbackDatetime: row.callback_datetime || null,
     };
   }
 
   return leads.map(lead => ({
     ...lead,
-    crm: crmMap[lead.email] || { status: 'new', kanbanStatus: null, notes: '', followUpDate: null },
+    crm: crmMap[lead.email] || { status: 'new', kanbanStatus: null, notes: '', followUpDate: null, callbackDatetime: null },
   }));
 }
 

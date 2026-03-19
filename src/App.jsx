@@ -7,6 +7,7 @@ import Filters from './components/Filters';
 import LeadTable from './components/LeadTable';
 import KanbanBoard from './components/KanbanBoard';
 import LeadModal from './components/LeadModal';
+import CallbackBanner from './components/CallbackBanner';
 import { TABS } from './utils/constants';
 
 function App() {
@@ -61,6 +62,7 @@ function App() {
         onMarkAllSeen={markAllSeen}
       />
       <StatsBar stats={stats} />
+      <CallbackBanner leads={leads} onLeadClick={handleLeadClick} />
       <div className="px-8 pb-8">
         {/* View toggle + tabs row */}
         <div className="flex items-center justify-between mb-5">

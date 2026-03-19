@@ -1,14 +1,44 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { CATEGORIES, DEFAULT_CATEGORY, CRM_STATUSES, KANBAN_COLUMNS } from '../utils/constants';
 import * as api from '../api/client';
+
+// Parse notes: handles JSON array format and legacy plain-text strings
+function parseNotes(raw) {
+  if (!raw) return [];
+  if (typeof raw === 'object' && Array.isArray(raw)) return raw;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {}
+  // Legacy: plain text note - convert to single entry
+  return raw.trim() ? [{ text: raw.trim(), timestamp: null }] : [];
+}
 
 export default function LeadModal({ lead, onClose, onUpdateCRM }) {
   const [emails, setEmails] = useState([]);
   const [loadingEmails, setLoadingEmails] = useState(true);
   const [activeEmailTab, setActiveEmailTab] = useState('all');
+  const [newNote, setNewNote] = useState('');
+  const [showCallbackPicker, setShowCallbackPicker] = useState(false);
+  const [callbackDate, setCallbackDate] = useState('');
+  const [callbackTime, setCallbackTime] = useState('');
 
   const cat = CATEGORIES[lead.category] || DEFAULT_CATEGORY;
-  const crm = lead.crm || { status: 'new', kanbanStatus: null, notes: '', followUpDate: null };
+  const crm = lead.crm || { status: 'new', kanbanStatus: null, notes: '', followUpDate: null, callbackDatetime: null };
+
+  const notesList = useMemo(() => parseNotes(crm.notes), [crm.notes]);
+
+  // Sync callback picker from lead data
+  useEffect(() => {
+    if (crm.callbackDatetime) {
+      const dt = new Date(crm.callbackDatetime);
+      setCallbackDate(dt.toISOString().split('T')[0]);
+      setCallbackTime(dt.toTimeString().slice(0, 5));
+    } else {
+      setCallbackDate('');
+      setCallbackTime('');
+    }
+  }, [lead.email]);
 
   const fetchEmails = useCallback(async (refresh = false) => {
     setLoadingEmails(true);
@@ -45,6 +75,34 @@ export default function LeadModal({ lead, onClose, onUpdateCRM }) {
 
   const handleStatusChange = (e) => {
     onUpdateCRM(lead.email, { status: e.target.value });
+  };
+
+  const handleAddNote = () => {
+    const text = newNote.trim();
+    if (!text) return;
+    const entry = { text, timestamp: new Date().toISOString() };
+    const updated = [entry, ...notesList];
+    onUpdateCRM(lead.email, { notes: JSON.stringify(updated) });
+    setNewNote('');
+  };
+
+  const handleDeleteNote = (index) => {
+    const updated = notesList.filter((_, i) => i !== index);
+    onUpdateCRM(lead.email, { notes: JSON.stringify(updated) });
+  };
+
+  const handleScheduleCallback = () => {
+    if (!callbackDate || !callbackTime) return;
+    const datetime = `${callbackDate}T${callbackTime}:00`;
+    onUpdateCRM(lead.email, { callbackDatetime: datetime });
+    setShowCallbackPicker(false);
+  };
+
+  const handleClearCallback = () => {
+    onUpdateCRM(lead.email, { callbackDatetime: null });
+    setCallbackDate('');
+    setCallbackTime('');
+    setShowCallbackPicker(false);
   };
 
   const filteredEmails = activeEmailTab === 'all'
@@ -131,6 +189,120 @@ export default function LeadModal({ lead, onClose, onUpdateCRM }) {
                   {col.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Notes & Callback */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="text-xs uppercase tracking-wider text-muted">Notes</div>
+                <span className="text-xs text-muted-dark">({notesList.length})</span>
+              </div>
+              {crm.callbackDatetime && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-accent-yellow/15 text-accent-yellow">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Callback: {new Date(crm.callbackDatetime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                </span>
+              )}
+            </div>
+
+            {/* Add note input */}
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text"
+                value={newNote}
+                onChange={e => setNewNote(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
+                placeholder="Type a note and press Enter..."
+                className="flex-1 bg-header border border-border rounded-lg px-3 py-2.5 text-sm text-gray-200 outline-none focus:border-primary"
+              />
+              <button
+                onClick={handleAddNote}
+                disabled={!newNote.trim()}
+                className="px-4 py-2.5 rounded-lg text-xs font-semibold bg-primary text-white hover:bg-primary/80 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Save Note
+              </button>
+            </div>
+
+            {/* Notes log */}
+            {notesList.length > 0 && (
+              <div className="space-y-1.5 max-h-[200px] overflow-y-auto mb-3 pr-1">
+                {notesList.map((note, i) => (
+                  <div key={i} className="flex items-start gap-2 bg-card rounded-lg px-3 py-2 group">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-200">{note.text}</div>
+                      {note.timestamp && (
+                        <div className="text-[10px] text-muted-dark mt-0.5">
+                          {new Date(note.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteNote(i)}
+                      className="text-muted-dark hover:text-accent-red text-xs opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex-shrink-0 mt-0.5"
+                      title="Delete note"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Callback scheduler */}
+            <div className="flex items-center gap-2">
+              {!showCallbackPicker ? (
+                <button
+                  onClick={() => setShowCallbackPicker(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-accent-yellow/10 text-accent-yellow border border-accent-yellow/20 hover:bg-accent-yellow/20 transition-colors cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  {crm.callbackDatetime ? 'Reschedule Callback' : 'Schedule Callback'}
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input
+                    type="date"
+                    value={callbackDate}
+                    onChange={e => setCallbackDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="bg-header border border-border rounded-md px-2.5 py-1.5 text-xs text-gray-200 outline-none focus:border-primary cursor-pointer"
+                  />
+                  <input
+                    type="time"
+                    value={callbackTime}
+                    onChange={e => setCallbackTime(e.target.value)}
+                    className="bg-header border border-border rounded-md px-2.5 py-1.5 text-xs text-gray-200 outline-none focus:border-primary cursor-pointer"
+                  />
+                  <button
+                    onClick={handleScheduleCallback}
+                    disabled={!callbackDate || !callbackTime}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent-green/15 text-accent-green border border-accent-green/20 hover:bg-accent-green/25 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setShowCallbackPicker(false)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-muted hover:text-white transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  {crm.callbackDatetime && (
+                    <button
+                      onClick={handleClearCallback}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent-red/10 text-accent-red border border-accent-red/20 hover:bg-accent-red/20 transition-colors cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

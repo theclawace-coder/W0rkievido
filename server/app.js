@@ -43,8 +43,8 @@ app.get('/api/leads/refresh', async (req, res) => {
 
 app.put('/api/leads/:email/crm', async (req, res) => {
   const { email } = req.params;
-  const { status, kanbanStatus, notes, followUpDate } = req.body;
-  const updated = await updateCRM(decodeURIComponent(email), { status, kanbanStatus, notes, followUpDate });
+  const { status, kanbanStatus, notes, followUpDate, callbackDatetime } = req.body;
+  const updated = await updateCRM(decodeURIComponent(email), { status, kanbanStatus, notes, followUpDate, callbackDatetime });
   res.json(updated);
 });
 

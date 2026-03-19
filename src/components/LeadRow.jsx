@@ -1,25 +1,23 @@
-import { useState, useRef } from 'react';
+import { useMemo } from 'react';
 import { CATEGORIES, DEFAULT_CATEGORY, CRM_STATUSES, KANBAN_COLUMNS } from '../utils/constants';
+
+function getLatestNote(raw) {
+  if (!raw) return '';
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed[0].text || '';
+  } catch {}
+  return typeof raw === 'string' ? raw : '';
+}
 
 export default function LeadRow({ lead, onUpdateCRM, onLeadClick }) {
   const cat = CATEGORIES[lead.category] || DEFAULT_CATEGORY;
-  const crm = lead.crm || { status: 'new', kanbanStatus: null, notes: '' };
-  const [notes, setNotes] = useState(crm.notes || '');
-  const debounceRef = useRef(null);
+  const crm = lead.crm || { status: 'new', kanbanStatus: null, notes: '', callbackDatetime: null };
+  const latestNote = useMemo(() => getLatestNote(crm.notes), [crm.notes]);
 
   const handleStatusChange = (e) => {
     e.stopPropagation();
     onUpdateCRM(lead.email, { status: e.target.value });
-  };
-
-  const handleNotesChange = (e) => {
-    e.stopPropagation();
-    const val = e.target.value;
-    setNotes(val);
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      onUpdateCRM(lead.email, { notes: val });
-    }, 500);
   };
 
   const handleKanbanChange = (e) => {
@@ -93,14 +91,21 @@ export default function LeadRow({ lead, onUpdateCRM, onLeadClick }) {
         </select>
       </td>
       <td className="px-4 py-3.5 border-b border-[#1e2028]">
-        <input
-          type="text"
-          value={notes}
-          onChange={handleNotesChange}
-          onClick={e => e.stopPropagation()}
-          placeholder="Add notes..."
-          className="bg-header border border-border rounded-md px-2.5 py-1.5 text-gray-200 text-[13px] w-full min-w-[150px] outline-none focus:border-primary"
-        />
+        <div className="min-w-[150px]">
+          {latestNote ? (
+            <div className="text-[13px] text-gray-300 truncate max-w-[200px]" title={latestNote}>
+              {latestNote}
+            </div>
+          ) : (
+            <div className="text-[13px] text-muted-dark">Click to add notes...</div>
+          )}
+          {crm.callbackDatetime && (
+            <div className="flex items-center gap-1 mt-1 text-[10px] text-accent-yellow">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-yellow flex-shrink-0" />
+              Callback: {new Date(crm.callbackDatetime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+            </div>
+          )}
+        </div>
       </td>
     </tr>
   );

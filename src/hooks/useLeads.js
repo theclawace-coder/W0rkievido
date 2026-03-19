@@ -84,6 +84,7 @@ export function useLeads() {
     qld: leads.filter(l => l.campaign === 'QLD').length,
     nsw: leads.filter(l => l.campaign === 'NSW').length,
     newLeads: newLeadCount,
+    callbacks: leads.filter(l => l.crm?.callbackDatetime).length,
   };
 
   return { leads, loading, lastFetched, error, stats, refresh, updateLeadCRM, markSeen, markAllSeen, newLeadCount };
